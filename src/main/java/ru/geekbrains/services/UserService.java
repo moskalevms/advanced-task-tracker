@@ -2,12 +2,13 @@ package ru.geekbrains.services;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ru.geekbrains.dto.UserDTO;
+import ru.geekbrains.entities.PasswordResetToken;
 import ru.geekbrains.entities.Role;
 import ru.geekbrains.entities.User;
+import ru.geekbrains.repositories.PasswordResetTokenRepository;
 import ru.geekbrains.repositories.RoleRepository;
 import ru.geekbrains.repositories.UserRepository;
 
@@ -20,6 +21,7 @@ public class UserService {
 
     private UserRepository userRepo;
     private RoleRepository roleRepo;
+    private PasswordResetTokenRepository passwordTokenRepo;
     private PasswordEncoder pswEncoder;
 
     private static final String ROLE_PREFIX = "ROLE_";
@@ -35,6 +37,12 @@ public class UserService {
     @Autowired
     public void setRoleRepository(RoleRepository repo) {
         roleRepo = repo;
+    }
+
+
+    @Autowired
+    public void setPasswordTokenRepo(PasswordResetTokenRepository repo) {
+        passwordTokenRepo = repo;
     }
 
 
@@ -62,17 +70,18 @@ public class UserService {
 
 
     public boolean isExistUser(UserDTO user) {
-        Optional<User> userFromDB = userRepo.findByUsername(user.username);
+        return isExistUser(user.username);
+    }
+
+
+    public boolean isExistUser(String username) {
+        Optional<User> userFromDB = userRepo.findByUsername(username);
         return userFromDB.isPresent();
     }
 
 
     public User getUser(String username) {
         return userRepo.findByUsername(username).orElseThrow(UserNotFoundException::new);
-    }
-
-    public org.springframework.security.core.userdetails.User getCurrentUser() {
-        return (org.springframework.security.core.userdetails.User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
     public List<User> findAll() {
@@ -93,6 +102,12 @@ public class UserService {
         String pswhash = pswEncoder.encode(newPassword);
         user.setPassword(pswhash);
         userRepo.save(user);
+    }
+
+
+    public void createPasswordResetToken(User user, String token) {
+        PasswordResetToken prt = new PasswordResetToken(token, user);
+        passwordTokenRepo.save(prt);
     }
 
 
