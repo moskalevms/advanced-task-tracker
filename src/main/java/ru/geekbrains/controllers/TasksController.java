@@ -1,55 +1,43 @@
 package ru.geekbrains.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import ru.geekbrains.entities.Task;
+import ru.geekbrains.errors_handlers.ResourceNotFoundException;
 import ru.geekbrains.services.ProjectService;
 import ru.geekbrains.services.TaskHistoryService;
 import ru.geekbrains.services.TasksService;
 import ru.geekbrains.services.UserService;
 import ru.geekbrains.utils.TaskFilter;
 
-import java.io.Serializable;
+import javax.validation.Valid;
 import java.security.Principal;
-import java.util.List;
+import java.text.ParseException;
 import java.util.Map;
 
 @Controller
 @RequestMapping("/tasks")
-public class TasksController implements Serializable {
+public class TasksController {
 
     private TasksService tasksService;
     private ProjectService projectService;
     private UserService userService;
     private TaskHistoryService taskHistoryService;
 
-    @Autowired
-    public void setTasksService(TasksService tasksService) {
+    public TasksController(TasksService tasksService, ProjectService projectService, UserService userService, TaskHistoryService taskHistoryService) {
         this.tasksService = tasksService;
-    }
-
-    @Autowired
-    public void setProjectService(ProjectService projectService) {
         this.projectService = projectService;
-    }
-
-    @Autowired
-    public void setUserService(UserService userService) {
         this.userService = userService;
-    }
-
-    @Autowired
-    public void setTaskHistoryService(TaskHistoryService taskHistoryService) {
         this.taskHistoryService = taskHistoryService;
     }
 
     @GetMapping("/")
-    public String showTasks(Model model, Principal principal, @RequestParam Map<String, String> params) {
+    public String showTasks(Model model, Principal principal, @RequestParam Map<String, String> params) throws ParseException {
 
         int pageIndex = 0;
         if (params.containsKey("p")) {
@@ -72,24 +60,31 @@ public class TasksController implements Serializable {
     @GetMapping("/create")
     public String createTask(Model model, Principal principal, @ModelAttribute(name = "task") Task task) {
         task.setManager_id(userService.getUser(principal.getName()).getId());
+        task.setStatus(Task.Status.CREATED);
+        task.setProgress(0);
         model.addAttribute("projectList", projectService.findAll());
         model.addAttribute("userList", userService.findAll());
         return "tasks/create-task";
     }
 
     @PostMapping("/add")
-    public String addTask(@ModelAttribute(name = "task") Task task) {
+    public String addTask(@Valid @ModelAttribute(name = "task") Task task, BindingResult bindingResult, Model model) {
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("projectList", projectService.findAll());
+            model.addAttribute("userList", userService.findAll());
+            return "tasks/create-task";
+        }
         tasksService.save(task);
         return "redirect:/tasks/";
     }
 
     @GetMapping("/edit")
-    public String editTask(Model model, Principal principal, @RequestParam(name = "id", required = false) Long id) throws Exception {
+    public String editTask(Model model, Principal principal, @RequestParam(name = "id", required = false) Long id) {
         Task task = null;
         if (id != null) {
             task = tasksService.findById(id);
         } else {
-            throw new Exception("Id отсутствует");
+            throw new ResourceNotFoundException("Task id не указан");
         }
         model.addAttribute("editor", userService.getUser(principal.getName()));
         model.addAttribute("task", task);
@@ -99,7 +94,13 @@ public class TasksController implements Serializable {
     }
 
     @PostMapping("/edit")
-    public String saveModifiedProduct(@ModelAttribute(name = "task") Task task, Principal principal) {
+    public String saveModifiedTask(@Valid @ModelAttribute(name = "task") Task task, BindingResult bindingResult, Principal principal, Model model) {
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("editor", userService.getUser(principal.getName()));
+            model.addAttribute("projectList", projectService.findAll());
+            model.addAttribute("userList", userService.findAll());
+            return "tasks/edit-task";
+        }
         tasksService.save(task, principal);
         return "redirect:/tasks/";
     }
@@ -110,7 +111,7 @@ public class TasksController implements Serializable {
         if (id != null) {
             task = tasksService.findById(id);
         } else {
-            throw new Exception("Id не указан");
+            throw new ResourceNotFoundException("Task id не указан");
         }
 
         model.addAttribute("task", task);

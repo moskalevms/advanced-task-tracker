@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
 
 <head>
-    <meta charset="utf-8" http-equiv="refresh" content="0;URL=http://localhost:8080/app/tasks/" />
+    <meta charset="utf-8"  />
 
-    <title>Advanced Task tracker</title>
+    <title>Error page</title>
 
     <link rel="icon" type="image/png" th:href="@{/favicon.ico}">
 
@@ -17,5 +16,10 @@
 
 <body>
     <div th:replace="~{navigation :: navigation(Home)}"/>
+    <div class="content-position">
+        <h3>Ошибка!</h3>
+
+        <p>Возникла ошибка <span th:text="${error}" /></p>
+    </div>
 </body>
 </html>

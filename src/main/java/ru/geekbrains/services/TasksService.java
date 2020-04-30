@@ -12,6 +12,7 @@ import ru.geekbrains.entities.Project;
 import ru.geekbrains.entities.Task;
 import ru.geekbrains.entities.TaskHistory;
 import ru.geekbrains.entities.User;
+import ru.geekbrains.errors_handlers.ResourceNotFoundException;
 import ru.geekbrains.events.TaskCreatedEvent;
 import ru.geekbrains.repositories.TasksRepository;
 
@@ -63,19 +64,8 @@ public class TasksService {
     }
 
     public Task findById(Long id) {
-        return tasksRepository.findById(id).get();
-    }
-
-    public List<Task> findByManagerId(Long id) {
-        return tasksRepository.findByManager_id(id);
-    }
-
-    public List<Task> findByEmployerId(Long id) {
-        return tasksRepository.findByEmployer_id(id);
-    }
-
-    public List<Task> findByManager_idAndEmployer_id(Long id) {
-        return tasksRepository.findByManager_idAndEmployer_id(id);
+        return tasksRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
     }
 
     @Transactional
@@ -95,19 +85,16 @@ public class TasksService {
             // что изменилось в задаче
             Task currentTask = this.findById(task.getId());
             StringBuilder description = new StringBuilder();
-            boolean isEdited = false;
+
             if (!task.getTitle().equals(currentTask.getTitle())) {
-                isEdited = true;
                 description.append("Название изменено с '" + currentTask.getTitle() + "' на " + "'" + task.getTitle() + "'. ");
             }
 
             if (!task.getDescription().equals(currentTask.getDescription())) {
-                isEdited = true;
                 description.append("Описание изменено с '" + currentTask.getDescription() + "' на " + "'" + task.getDescription() + "'. ");
             }
 
             if (!task.getEmployer_id().equals(currentTask.getEmployer_id())) {
-                isEdited = true;
                 User currentEmployer = userService.findById(currentTask.getEmployer_id());
                 User newEmployer = userService.findById(task.getEmployer_id());
                 description.append("Исполнитель изменен с '" + currentEmployer.getLastname() + " " + currentEmployer.getFirstname()
@@ -115,22 +102,18 @@ public class TasksService {
             }
 
             if (!task.getDue_time().equals(currentTask.getDue_time())) {
-                isEdited = true;
                 description.append("Дата завершения изменена с '" + currentTask.getDue_time() + "' на " + "'" + task.getDue_time() + "'. ");
             }
 
             if (!task.getPlan_time().equals(currentTask.getPlan_time())) {
-                isEdited = true;
                 description.append("Время выполнения изменилось с '" + currentTask.getPlan_time() + "ч' на " + "'" + task.getPlan_time() + "ч'. ");
             }
 
             if (Float.compare(task.getProgress(), currentTask.getProgress()) != 0) {
-                isEdited = true;
                 description.append("Прогресс изменился с '" + currentTask.getProgress() + "%' на " + "'" + task.getProgress() + "%'.");
             }
 
             if (!task.getProject_id().equals(currentTask.getProject_id())) {
-                isEdited = true;
                 Project currentProject = projectService.findById(currentTask.getProject_id());
                 Project newProject = projectService.findById(task.getProject_id());
                 description.append("Проект изменен с '" + currentProject.getTitle()
@@ -138,23 +121,23 @@ public class TasksService {
             }
 
             if (!task.getUrgency().equals(currentTask.getUrgency())) {
-                isEdited = true;
                 description.append("Срочность изменилась с '" + currentTask.getUrgency() + "' на " + "'" + task.getUrgency() + "'. ");
             }
 
             if (!task.getStatus().equals(currentTask.getStatus())) {
-                isEdited = true;
                 description.append("Статус изменился с '" + currentTask.getStatus() + "' на " + "'" + task.getStatus() + "'. ");
             }
 
-            if (isEdited) {
-                description.insert(0, "Пользователь " + userService.getUser(principal.getName()).getFirstname()
-                        + " " + userService.getUser(principal.getName()).getLastname()
+            if (description.length() > 0) {
+                User curUser = userService.getUser(principal.getName());
+                description.insert(0, "Пользователь " + curUser.getFirstname()
+                        + " " + curUser.getLastname()
                         + " внес изменения: ");
+
+                taskHistory.setDescription(description.toString());
+                taskHistory.setUser_id(curUser.getId());
+                taskHistoryService.save(taskHistory);
             }
-            taskHistory.setDescription(description.toString());
-            taskHistory.setUser_id(userService.getUser(principal.getName()).getId());
-            taskHistoryService.save(taskHistory);
         }
         return tasksRepository.save(task);
     }
